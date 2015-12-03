@@ -1,46 +1,36 @@
 #!/usr/bin/python
-from redis import Redis
-from flask import current_app
-from pickle import loads, dumps
+# -*- coding: utf-8 -*-
+
+import urllib
+import json
+import os
+import httplib
+import httpClient
 
 
 
-redis = Redis()
-app.config['REDIS_QUEUE_KEY'] = 'my_queue'
+# Get json from sr.se
+response = urllib.urlopen('http://api.sr.se/api/v2/episodes/index?programid=2000&format=json&audioquality=hi&page=1&size=1')
+data = json.load(response)
 
-class DelayedResult(object):
-    def __init__(self, key):
-        self.key = key
-        self._rv = None
+# Extract the correct url from json
+url = data['episodes'][0]['broadcast']['broadcastfiles'][0]['url']
 
-    @property
-    def return_value(self):
-        if self._rv is None:
-            rv = redis.get(self.key)
-            if rv is not None:
-                self._rv = loads(rv)
-        return self._rv
+# Extract correct filename
+soundFile = url.split('/')[-1]
 
+# Open correct url
+f = urllib.urlopen(url)
 
-def queuefunc(f):
-    def delay(*args, **kwargs):
-        qkey = current_app.config['REDIS_QUEUE_KEY']
-        key = '%s:result:%s' % (qkey, str(uuid4()))
-        s = dumps((f, key, args, kwargs))
-        redis.rpush(current_app.config['REDIS_QUEUE_KEY'], s)
-        return DelayedResult(key)
-    f.delay = delay
-    return f
-
-
-    def queue_daemon(app, rv_ttl=500):
-    while 1:
-        msg = redis.blpop(app.config['REDIS_QUEUE_KEY'])
-        func, key, args, kwargs = loads(msg[1])
-        try:
-            rv = func(*args, **kwargs)
-        except Exception, e:
-            rv = e
-        if rv is not None:
-            redis.set(key, dumps(rv))
-            redis.expire(key, rv_ttl)
+# Check if file exists
+if os.path.exists(soundFile):
+    print("File exists")
+else:
+    # Open file and set as binary
+    fh = open(soundFile, 'wb')
+    # Write binary file to disk
+    fh.write(f.read())
+    # Close file
+    fh.close()
+    # Only a test route. Should be changed to AT BL route
+    #httpClient.httpRequest("POST", "/play")
